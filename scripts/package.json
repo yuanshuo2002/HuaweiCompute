@@ -1,0 +1,16 @@
+{
+  "name": "huawei-compute-incremental-crawler",
+  "version": "1.0.0",
+  "private": true,
+  "description": "华为计算公众号增量采集脚本",
+  "scripts": {
+    "crawl": "node incremental-crawl.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "html-to-docx": "^1.8.0"
+  }
+}
