@@ -23,6 +23,7 @@ for (const f of files) {
     let u = m[1].replace(/&amp;/g, '&');
     if (u.startsWith('//')) u = 'https:' + u;
     if (!/^https?:\/\//.test(u)) continue;
+    if (!/^https?:\/\/(mmbiz\.qpic\.cn|mmbiz\.qlogo\.cn)\//.test(u)) continue;
     if (!urls.has(u)) urls.set(u, crypto.createHash('sha1').update(u).digest('hex').slice(0, 16));
   }
 }
