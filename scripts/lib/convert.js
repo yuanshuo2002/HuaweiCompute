@@ -32,6 +32,8 @@ function localImage(url, imageMap) {
     const p = path.isAbsolute(rel) ? rel : path.join(REPO_ROOT, rel);
     const buf = fs.readFileSync(p);
     const ext = (p.match(/\.([a-z0-9]+)$/i) || [])[1] || 'jpg';
+    // 按文件头识别 GIF（扩展名可能因 content-type 误标为 jpg），html-to-docx 对 GIF 支持有缺陷
+    if (buf.slice(0, 4).toString('latin1').startsWith('GIF8') || ext.toLowerCase() === 'gif') return null;
     return `data:${MIME[ext.toLowerCase()] || 'image/jpeg'};base64,${buf.toString('base64')}`;
   } catch (e) { return null; }
 }
@@ -44,6 +46,7 @@ async function urlToDataUri(url, imageMap) {
     if (!res.ok) return null;
     const ct = res.headers.get('content-type') || 'image/jpeg';
     const buf = Buffer.from(await res.arrayBuffer());
+    if (ct.includes('gif') || buf.slice(0, 4).toString('latin1').startsWith('GIF8')) return null;
     return `data:${ct.split(';')[0]};base64,${buf.toString('base64')}`;
   } catch (e) {
     return null;
@@ -67,7 +70,11 @@ async function htmlToDocx(raw, { titleOverride = '', authorFallback = '', imageM
   const imgs = content.find('img').toArray();
   let imgOk = 0;
   for (const el of imgs) {
-    let src = $(el).attr('data-src') || $(el).attr('src') || '';
+    const ds = $(el).attr('data-src') || '', ss = $(el).attr('src') || '';
+    if (/\.gif(\?|$)/i.test(ds) || /\.gif(\?|$)/i.test(ss) || ds.startsWith('data:image/gif') || ss.startsWith('data:image/gif')) {
+      $(el).remove(); continue; // GIF 会让 docx 缺 content-type
+    }
+    let src = ds || ss;
     if (!src || src.startsWith('data:')) continue;
     if (src.startsWith('//')) src = 'https:' + src;
     if (!/^https?:/.test(src)) continue;
