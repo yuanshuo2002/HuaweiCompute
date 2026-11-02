@@ -20,7 +20,25 @@ function decodeEntities(s) {
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
 }
-async function urlToDataUri(url) {
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
+const MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+               webp: 'image/webp', bmp: 'image/bmp', svg: 'image/svg+xml' };
+
+function localImage(url, imageMap) {
+  if (!imageMap) return null;
+  const rel = imageMap[url];
+  if (!rel) return null;
+  try {
+    const p = path.isAbsolute(rel) ? rel : path.join(REPO_ROOT, rel);
+    const buf = fs.readFileSync(p);
+    const ext = (p.match(/\.([a-z0-9]+)$/i) || [])[1] || 'jpg';
+    return `data:${MIME[ext.toLowerCase()] || 'image/jpeg'};base64,${buf.toString('base64')}`;
+  } catch (e) { return null; }
+}
+
+async function urlToDataUri(url, imageMap) {
+  const local = localImage(url, imageMap);
+  if (local) return local;
   try {
     const res = await fetch(url, { headers: { 'User-Agent': UA, Referer: 'https://mp.weixin.qq.com/' } });
     if (!res.ok) return null;
@@ -32,7 +50,7 @@ async function urlToDataUri(url) {
   }
 }
 
-async function htmlToDocx(raw, { titleOverride = '', authorFallback = '' } = {}) {
+async function htmlToDocx(raw, { titleOverride = '', authorFallback = '', imageMap = null } = {}) {
   const title =
     titleOverride ||
     decodeEntities(pick(raw, /var msg_title = ['"]([^'"]*)['"]/) || pick(raw, /<meta property="og:title" content="([^"]*)"/)) ||
@@ -53,7 +71,7 @@ async function htmlToDocx(raw, { titleOverride = '', authorFallback = '' } = {})
     if (!src || src.startsWith('data:')) continue;
     if (src.startsWith('//')) src = 'https:' + src;
     if (!/^https?:/.test(src)) continue;
-    const dataUri = await urlToDataUri(src);
+    const dataUri = await urlToDataUri(src, imageMap);
     if (dataUri) { $(el).attr('src', dataUri); $(el).removeAttr('data-src'); imgOk++; }
     else $(el).remove();
   }

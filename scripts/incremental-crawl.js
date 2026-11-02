@@ -33,6 +33,8 @@ function parseArgs(argv) {
     else if (k === '--albums') { a.albums = argv[++i]; }
     else if (k === '--update-baseline') { a.updateBaseline = true; }
     else if (k === '--no-discover') { a.noDiscover = true; }
+    else if (k === '--no-save-html') { a.noSaveHtml = true; }
+    else if (k === '--image-map') { a.imageMap = argv[++i]; }
   }
   return a;
 }
@@ -61,6 +63,7 @@ async function main() {
   const baseline = JSON.parse(fs.readFileSync(baselineFile, 'utf8'));
   const baselineSet = new Set(baseline.map((b) => `${b.mid}-${b.idx}`));
   const albumList = JSON.parse(fs.readFileSync(albumsFile, 'utf8'));
+  const imageMap = args.imageMap ? JSON.parse(fs.readFileSync(path.resolve(args.imageMap), 'utf8')) : null;
   console.log(`基线 ${baselineSet.size} 篇，已知合集 ${albumList.length} 个`);
 
   // 1) 枚举全部已知合集
@@ -129,7 +132,12 @@ async function main() {
       const res = await fetch(a.url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36', Referer: 'https://mp.weixin.qq.com/' } });
       const html = await res.text();
       if (html.length < 50000 || (!html.includes('js_content') && !html.includes('rich_media_content'))) throw new Error('not-content len=' + html.length);
-      const { buf, title, images } = await htmlToDocx(html, { titleOverride: a.title, authorFallback: '华为计算' });
+      if (!args.noSaveHtml) {
+        const rawDir = path.join(ROOT, 'raw');
+        fs.mkdirSync(rawDir, { recursive: true });
+        fs.writeFileSync(path.join(rawDir, `${tag}.html`), html);
+      }
+      const { buf, title, images } = await htmlToDocx(html, { titleOverride: a.title, authorFallback: '华为计算', imageMap });
       fs.writeFileSync(path.join(outDir, `${tag}_${safeName(title)}.docx`), buf);
       ok++;
       saved.push({ mid: a.mid, idx: a.idx, title, date: a.createTime ? new Date(a.createTime * 1000).toISOString().slice(0, 10) : '' });
